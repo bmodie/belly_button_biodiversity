@@ -1,27 +1,20 @@
-// Getting references
-var selDataset = document.getElementById("selDataset");
-var PANEL = document.getElementById("sample-metadata");
-var PIE = document.getElementById("pie");
-var BUBBLE = document.getElementById("bubble");
-var Gauge = document.getElementById("gauge");
-
 function updateMetaData(data) {
     // Reference to Panel element for sample metadata
-    var PANEL = document.getElementById("sample-metadata");
+    var panel = document.getElementById("sample-metadata");
     // Clear any existing metadata
-    PANEL.innerHTML = '';
+    panel.innerHTML = '';
     // Loop through all of the keys in the json response and
     // create new metadata tags
     for(var key in data) {
         h6tag = document.createElement("h6");
         h6Text = document.createTextNode(`${key}: ${data[key]}`);
         h6tag.append(h6Text);
-        PANEL.appendChild(h6tag);
+        panel.appendChild(h6tag);
     }
 }
 
 function buildCharts(sampleData, otuData) {
-    // Loop through sample data and find the OTU Taxonomic Name
+    // Loop through sample data and find the OTU Name
     var labels = sampleData[0]['otu_ids'].map(function(item) {
         return otuData[item]
     });
@@ -42,10 +35,9 @@ function buildCharts(sampleData, otuData) {
             colorscale: "Earth",
         }
     }];
-    var BUBBLE = document.getElementById('bubble');
-    Plotly.plot(BUBBLE, bubbleData, bubbleLayout);
+    var bubble = document.getElementById('bubbleplot');
+    Plotly.plot(bubble, bubbleData, bubbleLayout);
     // Build Pie Chart
-    console.log(sampleData[0]['sample_values'].slice(0, 10))
     var pieData = [{
         values: sampleData[0]['sample_values'].slice(0, 10),
         labels: sampleData[0]['otu_ids'].slice(0, 10),
@@ -56,35 +48,36 @@ function buildCharts(sampleData, otuData) {
     var pieLayout = {
         margin: { t: 0, l: 0 }
     };
-    var PIE = document.getElementById('pie');
-    Plotly.plot(PIE, pieData, pieLayout);
+    var pie = document.getElementById('pie');
+    Plotly.plot(pie, pieData, pieLayout);
 };
 
 function updateCharts(sampleData, otuData) {
     var sampleValues = sampleData[0]['sample_values'];
-    var otuIDs = sampleData[0]['otu_ids'];
+    var otuIds = sampleData[0]['otu_ids'];
     // Return the OTU Description for each otuID in the dataset
-    var labels = otuIDs.map(function(item) {
+    var labels = otuIds.map(function(item) {
         return otuData[item]
     });
     // Update the Bubble Chart with the new data
-    var BUBBLE = document.getElementById('bubble');
-    Plotly.restyle(BUBBLE, 'x', [otuIDs]);
-    Plotly.restyle(BUBBLE, 'y', [sampleValues]);
-    Plotly.restyle(BUBBLE, 'text', [labels]);
-    Plotly.restyle(BUBBLE, 'marker.size', [sampleValues]);
-    Plotly.restyle(BUBBLE, 'marker.color', [otuIDs]);
+    var bubble = document.getElementById('bubble');
+    Plotly.restyle(bubble, 'x', [otuIds]);
+    Plotly.restyle(bubble, 'y', [sampleValues]);
+    Plotly.restyle(bubble, 'text', [labels]);
+    Plotly.restyle(bubble, 'marker.size', [sampleValues]);
+    Plotly.restyle(bubble, 'marker.color', [otuIds]);
+
     // Update the Pie Chart with the new data
     // Use slice to select only the top 10 OTUs for the pie chart
-    var PIE = document.getElementById('pie');
+    var pie = document.getElementById('pie');
     var pieUpdate = {
         values: [sampleValues.slice(0, 10)],
-        labels: [otuIDs.slice(0, 10)],
+        labels: [otuIds.slice(0, 10)],
         hovertext: [labels.slice(0, 10)],
         hoverinfo: 'hovertext',
         type: 'pie'
     };
-    Plotly.restyle(PIE, pieUpdate);
+    Plotly.restyle(pie, pieUpdate);
 }
 
 function getData(sample, callback) {
@@ -100,7 +93,6 @@ function getData(sample, callback) {
         if (error) return console.warn(error);
         updateMetaData(metaData);
     })
-    // BONUS - Build the Gauge Chart
     buildGauge(sample);
 }
 
@@ -112,7 +104,7 @@ function getOptions() {
         for (var i = 0; i < sampleNames.length;  i++) {
             var currentOption = document.createElement('option');
             currentOption.text = sampleNames[i];
-            currentOption.value = sampleNames[i]
+            currentOption.value = sampleNames[i];
             selDataset.appendChild(currentOption);
         }
         getData(sampleNames[0], buildCharts);
@@ -128,15 +120,31 @@ function init() {
     getOptions();
 }
 // Initialize the dashboard
-init();
+init();   
 
-// BONUS SECTION
+function piePlot(value){
+    var url=("/metadata/"+value)
+    console.log(url)
+    Plotly.d3.json(url, function(error, response) {
+        var trace1 = {
+            type: "pie",
+            values: response.map(data => data.sample_values),
+            labels: response.map(data => data.otu_ids)
+        }
+        var data = [trace1];
+        var layout = {
+          height: 400,
+          width: 500
+        };
+    });
+    return Plotly.newPlot('pie', data, layout);
+  };
 
 function buildGauge(sample) {
     Plotly.d3.json(`/wfreq/${sample}`, function(error, wfreq) {
         if (error) return console.warn(error);
-        // Enter the washing frequency between 0 and 180
-        var level = wfreq*20;
+        // enter wash frequency 
+        var level = wfreq*20
         // Trig to calc meter point
         var degrees = 180 - level,
             radius = .5;
@@ -144,7 +152,7 @@ function buildGauge(sample) {
         var x = radius * Math.cos(radians);
         var y = radius * Math.sin(radians);
         // Path: may have to change to create a better triangle
-        var mainPath = 'M -.0 -0.05 L .0 0.05 L ',
+        var mainPath = 'M -.0 -0.025 L .0 0.025 L ',
             pathX = String(x),
             space = ' ',
             pathY = String(y),
@@ -152,14 +160,14 @@ function buildGauge(sample) {
         var path = mainPath.concat(pathX,space,pathY,pathEnd);
         var data = [{ type: 'scatter',
         x: [0], y:[0],
-            marker: {size: 12, color:'850000'},
+            marker: {size: 28, color:'850000'},
             showlegend: false,
             name: 'Freq',
             text: level,
+            text: ['8-9', '7-8', '6-7', '5-6', '4-5', '3-4', '2-3', '1-2', '0-1', ''],
             hoverinfo: 'text+name'},
         { values: [50/9, 50/9, 50/9, 50/9, 50/9, 50/9, 50/9, 50/9, 50/9, 50],
         rotation: 90,
-        text: ['8-9', '7-8', '6-7', '5-6', '4-5', '3-4', '2-3', '1-2', '0-1', ''],
         textinfo: 'text',
         textposition:'inside',
         marker: {
@@ -169,7 +177,7 @@ function buildGauge(sample) {
                 'rgba(170, 202, 42, .5)', 'rgba(202, 209, 95, .5)',
                 'rgba(210, 206, 145, .5)', 'rgba(232, 226, 202, .5)',
                 'rgba(240, 230, 215, .5)', 'rgba(255, 255, 255, 0)']},
-        labels: ['8-9', '7-8', '6-7', '5-6', '4-5', '3-4', '2-3', '1-2', '0-1', ''],
+        labels: ['8-9', '7-8', '6-7', '5-6', '4-5', '3-4', '2-3', '0-1', ''],
         hoverinfo: 'label',
         hole: .5,
         type: 'pie',
@@ -183,16 +191,16 @@ function buildGauge(sample) {
             line: {
                 color: '850000'
             }
-            }],
-        title: '<b>Belly Button Washing Frequency</b> <br> Scrubs/Week',
+        }],
+        title: `<b> Belly Button Washing Frequency</b> <br>Scrubs per Week`,
         height: 500,
-        width: 500,
+        width: 500, 
         xaxis: {zeroline:false, showticklabels:false,
-                    showgrid: false, range: [-1, 1]},
+                showgrid: false, range: [-1, 1]},
         yaxis: {zeroline:false, showticklabels:false,
-                    showgrid: false, range: [-1, 1]}
+                showgrid: false, range: [-1, 1]}
         };
-        var GAUGE = document.getElementById('gauge');
-        Plotly.newPlot(GAUGE, data, layout);
+        var gauge = document.getElementById('gauge');
+        Plotly.newPlot(gauge, data, layout);
     });
-}
+};
